@@ -1,7 +1,7 @@
 Summary:	Tools for monitoring SMART capable hard disks
 Name:		smartmontools
 Version:	7.2
-Release:	6%{?dist}
+Release:	7%{?dist}
 Epoch:		1
 License:	GPLv2+
 URL:		http://smartmontools.sourceforge.net/
@@ -15,7 +15,8 @@ Source5:	drivedb.h
 #fedora/rhel specific
 Patch1:		smartmontools-5.38-defaultconf.patch
 Patch2:	smartmontools-7.2-capnotify.patch
-Patch3:	smartmontools-7.2-permsfix.patch
+Patch3:		smartmontools-7.2-permsfix.patch
+Patch4:		smartmontools-7.2-logsuppagefix3.patch
 
 BuildRequires: make
 BuildRequires:	gcc-c++ readline-devel ncurses-devel automake util-linux groff gettext
@@ -36,6 +37,7 @@ failure.
 %patch1 -p1 -b .defaultconf
 %patch2 -p1 -b .capnotify
 %patch3 -p1 -b .permsfix
+%patch4 -p2 -b .logsuppagefix3
 cp %{SOURCE5} .
 
 %build
@@ -90,6 +92,9 @@ mkdir -p $RPM_BUILD_ROOT%{_sharedstatedir}/%{name}
 %{_sharedstatedir}/%{name}
 
 %changelog
+* Mon May 29 2023 Michal Hlavinka <mhlavink@redhat.com> - 1:7.2-7
+- support reporting of Error Counter logging details (#2137279)
+
 * Wed Nov 03 2021 Michal Hlavinka <mhlavink@redhat.com> - 1:7.2-6
 - make notification work with capabilities (#1962593)
 
