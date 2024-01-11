@@ -1,7 +1,7 @@
 Summary:	Tools for monitoring SMART capable hard disks
 Name:		smartmontools
 Version:	7.1
-Release:	1%{?dist}
+Release:	2%{?dist}
 Epoch:		1
 Group:		System Environment/Base
 License:	GPLv2+
@@ -15,6 +15,10 @@ Source5:	drivedb.h
 
 #fedora/rhel specific
 Patch1:		smartmontools-5.38-defaultconf.patch
+Patch2:		smartmontools-7.2-logsuppagefix1.patch
+Patch3:		smartmontools-7.2-logsuppagefix2.patch
+Patch4:		smartmontools-7.2-logsuppagefix3.patch
+Patch5:		smartmontools-7.2-logsuppagefix4.patch
 
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 #new rpm does not handle this (yet?)
@@ -37,6 +41,10 @@ failure.
 %prep
 %setup -q 
 %patch1 -p1 -b .defaultconf
+%patch2 -p2 -b .logsuppagefix1
+%patch3 -p2 -b .logsuppagefix2
+%patch4 -p2 -b .logsuppagefix3
+%patch5 -p1 -b .logsuppagefix4
 
 # update SOURCE5 on maintainer's machine prior commiting, there's no internet connection on builders
 curl %{UrlSource5} -o %{SOURCE5} ||:
@@ -108,6 +116,9 @@ fi
 %{_sharedstatedir}/%{name}
 
 %changelog
+* Mon May 29 2023 Michal Hlavinka <mhlavink@redhat.com> - 1:7.1-2
+- support reporting of Error Counter logging details (#2136439)
+
 * Wed Apr 22 2020 Michal Hlavinka <mhlavink@redhat.com> - 1:7.1-1
 - smartmontools updated to 7.1 (#1671154)
 
