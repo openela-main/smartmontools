@@ -1,7 +1,7 @@
 Summary:	Tools for monitoring SMART capable hard disks
 Name:		smartmontools
 Version:	7.2
-Release:	7%{?dist}
+Release:	9%{?dist}
 Epoch:		1
 License:	GPLv2+
 URL:		http://smartmontools.sourceforge.net/
@@ -14,11 +14,17 @@ Source5:	drivedb.h
 
 #fedora/rhel specific
 Patch1:		smartmontools-5.38-defaultconf.patch
-Patch2:	smartmontools-7.2-capnotify.patch
+Patch2:		smartmontools-7.2-capnotify.patch
 Patch3:		smartmontools-7.2-permsfix.patch
 Patch4:		smartmontools-7.2-logsuppagefix3.patch
 
-BuildRequires: make
+# from upstream, for < 7.4, #RHEL-11400
+Patch5:		smartmontools-7.2-r5448.patch
+
+# from upstream, for <= 7.4, #RHEL-15505
+Patch6:		smartmontools-7.2-fixfdclose.patch
+
+BuildRequires:	make
 BuildRequires:	gcc-c++ readline-devel ncurses-devel automake util-linux groff gettext
 BuildRequires:	libselinux-devel libcap-ng-devel
 BuildRequires:	systemd systemd-devel
@@ -34,10 +40,12 @@ failure.
 
 %prep
 %setup -q 
-%patch1 -p1 -b .defaultconf
-%patch2 -p1 -b .capnotify
-%patch3 -p1 -b .permsfix
-%patch4 -p2 -b .logsuppagefix3
+%patch -P 1 -p1 -b .defaultconf
+%patch -P 2 -p1 -b .capnotify
+%patch -P 3 -p1 -b .permsfix
+%patch -P 4 -p2 -b .logsuppagefix3
+%patch -P 5 -p1 -b .r5448
+%patch -P 6 -p1 -b .fixfdclose
 cp %{SOURCE5} .
 
 %build
@@ -92,6 +100,12 @@ mkdir -p $RPM_BUILD_ROOT%{_sharedstatedir}/%{name}
 %{_sharedstatedir}/%{name}
 
 %changelog
+* Tue Jan 16 2024 Michal Hlavinka <mhlavink@redhat.com> - 1:7.2-9
+- smartd would not start with huge FD limits (#RHEL-15505)
+
+* Wed Dec 06 2023 Michal Hlavinka <mhlavink@redhat.com> - 1:7.2-8
+- fix segfault after read of NVMe error log on big endian (#RHEL-11400)
+
 * Mon May 29 2023 Michal Hlavinka <mhlavink@redhat.com> - 1:7.2-7
 - support reporting of Error Counter logging details (#2137279)
 
