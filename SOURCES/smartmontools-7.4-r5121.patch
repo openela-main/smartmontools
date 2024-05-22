@@ -1,0 +1,200 @@
+diff -up smartmontools-7.1/nvmecmds.cpp.r5121 smartmontools-7.1/nvmecmds.cpp
+--- smartmontools-7.1/nvmecmds.cpp.r5121	2019-07-01 22:54:14.000000000 +0200
++++ smartmontools-7.1/nvmecmds.cpp	2023-11-22 12:56:02.927324622 +0100
+@@ -3,7 +3,7 @@
+  *
+  * Home page of code is: https://www.smartmontools.org
+  *
+- * Copyright (C) 2016-19 Christian Franke
++ * Copyright (C) 2016-20 Christian Franke
+  *
+  * SPDX-License-Identifier: GPL-2.0-or-later
+  */
+@@ -132,6 +132,7 @@ bool nvme_read_id_ctrl(nvme_device * dev
+     swapx(&id_ctrl.vid);
+     swapx(&id_ctrl.ssvid);
+     swapx(&id_ctrl.cntlid);
++    swapx(&id_ctrl.ver);
+     swapx(&id_ctrl.oacs);
+     swapx(&id_ctrl.wctemp);
+     swapx(&id_ctrl.cctemp);
+@@ -181,30 +182,54 @@ bool nvme_read_id_ns(nvme_device * devic
+   return true;
+ }
+ 
+-// Read NVMe log page with identifier LID.
+-bool nvme_read_log_page(nvme_device * device, unsigned char lid, void * data,
+-	       		unsigned size, bool broadcast_nsid)
++static bool nvme_read_log_page_1(nvme_device * device, unsigned nsid,
++  unsigned char lid, void * data, unsigned size, unsigned offset = 0)
+ {
+-  if (!(4 <= size && size <= 0x4000 && (size % 4) == 0))
+-    throw std::logic_error("nvme_read_log_page(): invalid size");
++  if (!(4 <= size && size <= 0x1000 && !(size % 4) && !(offset % 4)))
++    return device->set_err(EINVAL, "Invalid NVMe log size %u or offset %u", size, offset);
+ 
+   memset(data, 0, size);
+   nvme_cmd_in in;
+   in.set_data_in(nvme_admin_get_log_page, data, size);
+-  in.nsid = broadcast_nsid ? 0xffffffff : device->get_nsid();
++  in.nsid = nsid;
+   in.cdw10 = lid | (((size / 4) - 1) << 16);
++  in.cdw12 = offset; // LPOL, NVMe 1.2.1
+ 
+   return nvme_pass_through(device, in);
+ }
+ 
++// Read NVMe log page with identifier LID.
++unsigned nvme_read_log_page(nvme_device * device, unsigned nsid, unsigned char lid,
++  void * data, unsigned size, bool nvme_121, unsigned offset /* = 0 */)
++{
++  unsigned n, bs;
++  for (n = 0; n < size; n += bs) {
++    if (!nvme_121 && offset + n > 0) {
++      device->set_err(ENOSYS, "Log Page Offset requires NVMe >= 1.2.1");
++      break;
++    }
++
++    // Limit transfer size to one page to avoid problems with
++    // limits of NVMe pass-through layer or too low MDTS values.
++    bs = size - n;
++    if (bs > 0x1000)
++      bs = 0x1000;
++    if (!nvme_read_log_page_1(device, nsid, lid, (char *)data + n, bs, offset + n))
++      break;
++  }
++
++  return n;
++}
++
+ // Read NVMe Error Information Log.
+-bool nvme_read_error_log(nvme_device * device, nvme_error_log_page * error_log, unsigned num_entries)
++unsigned nvme_read_error_log(nvme_device * device, nvme_error_log_page * error_log,
++  unsigned num_entries, bool nvme_121)
+ {
+-  if (!nvme_read_log_page(device, 0x01, error_log, num_entries * sizeof(*error_log), true))
+-    return false;
++  unsigned n = nvme_read_log_page(device, 0xffffffff, 0x01, error_log,
++                                  num_entries * sizeof(*error_log), nvme_121);
+ 
+   if (isbigendian()) {
+-    for (unsigned i = 0; i < num_entries; i++) {
++    for (unsigned i = 0; i < n; i++) {
+       swapx(&error_log[i].error_count);
+       swapx(&error_log[i].sqid);
+       swapx(&error_log[i].cmdid);
+@@ -215,13 +240,13 @@ bool nvme_read_error_log(nvme_device * d
+     }
+   }
+ 
+-  return true;
++  return n / sizeof(*error_log);
+ }
+ 
+ // Read NVMe SMART/Health Information log.
+ bool nvme_read_smart_log(nvme_device * device, nvme_smart_log & smart_log)
+ {
+-  if (!nvme_read_log_page(device, 0x02, &smart_log, sizeof(smart_log), true))
++  if (!nvme_read_log_page_1(device, 0xffffffff, 0x02, &smart_log, sizeof(smart_log)))
+     return false;
+ 
+   if (isbigendian()) {
+diff -up smartmontools-7.1/nvmecmds.h.r5121 smartmontools-7.1/nvmecmds.h
+--- smartmontools-7.1/nvmecmds.h.r5121	2019-07-01 22:54:14.000000000 +0200
++++ smartmontools-7.1/nvmecmds.h	2023-11-22 12:56:02.927324622 +0100
+@@ -3,7 +3,7 @@
+  *
+  * Home page of code is: https://www.smartmontools.org
+  *
+- * Copyright (C) 2016-19 Christian Franke
++ * Copyright (C) 2016-20 Christian Franke
+  *
+  * Original code from <linux/nvme.h>:
+  *   Copyright (C) 2011-2014 Intel Corporation
+@@ -236,12 +236,12 @@ bool nvme_read_id_ctrl(nvme_device * dev
+ bool nvme_read_id_ns(nvme_device * device, unsigned nsid, smartmontools::nvme_id_ns & id_ns);
+ 
+ // Read NVMe log page with identifier LID.
+-bool nvme_read_log_page(nvme_device * device, unsigned char lid, void * data,
+-	       		unsigned size, bool broadcast_nsid);
++unsigned nvme_read_log_page(nvme_device * device, unsigned nsid, unsigned char lid,
++  void * data, unsigned size, bool nvme_121, unsigned offset = 0);
+ 
+ // Read NVMe Error Information Log.
+-bool nvme_read_error_log(nvme_device * device, smartmontools::nvme_error_log_page * error_log,
+-  unsigned num_entries);
++unsigned nvme_read_error_log(nvme_device * device, smartmontools::nvme_error_log_page * error_log,
++  unsigned num_entries, bool nvme_121);
+ 
+ // Read NVMe SMART/Health Information log.
+ bool nvme_read_smart_log(nvme_device * device, smartmontools::nvme_smart_log & smart_log);
+diff -up smartmontools-7.1/nvmeprint.cpp.r5121 smartmontools-7.1/nvmeprint.cpp
+--- smartmontools-7.1/nvmeprint.cpp.r5121	2023-11-22 12:56:02.927324622 +0100
++++ smartmontools-7.1/nvmeprint.cpp	2023-11-22 13:00:34.472659814 +0100
+@@ -524,6 +524,9 @@ int nvmePrintMain(nvme_device * device,
+     }
+   }
+ 
++  // Log Page Offset requires NVMe >= 1.2.1
++  bool nvme_121 = (id_ctrl.ver >= 0x10201);
++
+   // Print Error Information Log
+   if (options.error_log_entries) {
+     unsigned num_entries = id_ctrl.elpe + 1; // 0-based value
+@@ -531,39 +534,47 @@ int nvmePrintMain(nvme_device * device,
+     nvme_error_log_page * error_log =
+       reinterpret_cast<nvme_error_log_page *>(error_log_buf.data());
+ 
+-    if (!nvme_read_error_log(device, error_log, num_entries)) {
++    unsigned read_entries = nvme_read_error_log(device, error_log, num_entries, nvme_121);
++    if (!read_entries) {
+       jerr("Read Error Information Log failed: %s\n\n", device->get_errmsg());
+       return retval | FAILSMART;
+     }
++    if (read_entries < num_entries)
++      jerr("Read Error Information Log failed, %u entries missing: %s\n",
++           num_entries - read_entries, device->get_errmsg());
+ 
+-    print_error_log(error_log, num_entries, options.error_log_entries);
++    print_error_log(error_log, read_entries, options.error_log_entries);
+   }
+ 
+   // Dump log page
+   if (options.log_page_size) {
+     // Align size to dword boundary
+     unsigned size = ((options.log_page_size + 4-1) / 4) * 4;
+-    bool broadcast_nsid;
+     raw_buffer log_buf(size);
+
++    unsigned nsid; 
+     switch (options.log_page) {
+     case 1:
+     case 2:
+     case 3:
+-      broadcast_nsid = true;
++      nsid = 0xffffffff;
+       break;
+     default:
+-      broadcast_nsid = false;
++      nsid = device->get_nsid();
+       break;
+     }
+-    if (!nvme_read_log_page(device, options.log_page, log_buf.data(),
+-			    size, broadcast_nsid)) {
++    unsigned read_bytes = nvme_read_log_page(device, nsid, options.log_page, log_buf.data(),
++                                             size, nvme_121);
++    if (!read_bytes) {
+       jerr("Read NVMe Log 0x%02x failed: %s\n\n", options.log_page, device->get_errmsg());
+       return retval | FAILSMART;
+     }
++    if (read_bytes < size)
++      jerr("Read NVMe Log 0x%02x failed, 0x%x bytes missing: %s\n",
++           options.log_page, size - read_bytes, device->get_errmsg());
+ 
+-    pout("NVMe Log 0x%02x (0x%04x bytes)\n", options.log_page, size);
+-    dStrHex(log_buf.data(), size, 0);
++    pout("NVMe Log 0x%02x (0x%04x bytes)\n", options.log_page, read_bytes);
++    dStrHex(log_buf.data(), read_bytes, 0);
+     pout("\n");
+   }
+ 

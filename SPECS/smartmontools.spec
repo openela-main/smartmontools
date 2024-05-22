@@ -1,7 +1,7 @@
 Summary:	Tools for monitoring SMART capable hard disks
 Name:		smartmontools
 Version:	7.1
-Release:	2%{?dist}
+Release:	3%{?dist}
 Epoch:		1
 Group:		System Environment/Base
 License:	GPLv2+
@@ -19,6 +19,11 @@ Patch2:		smartmontools-7.2-logsuppagefix1.patch
 Patch3:		smartmontools-7.2-logsuppagefix2.patch
 Patch4:		smartmontools-7.2-logsuppagefix3.patch
 Patch5:		smartmontools-7.2-logsuppagefix4.patch
+
+# 3x from upstream, for smartmontools <= 7.4, #RHEL-6982
+Patch6:		smartmontools-7.4-r5121.patch
+Patch7:		smartmontools-7.4-r5471.patch
+Patch8:		smartmontools-7.4-r5472.patch
 
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 #new rpm does not handle this (yet?)
@@ -40,11 +45,14 @@ failure.
 
 %prep
 %setup -q 
-%patch1 -p1 -b .defaultconf
-%patch2 -p2 -b .logsuppagefix1
-%patch3 -p2 -b .logsuppagefix2
-%patch4 -p2 -b .logsuppagefix3
-%patch5 -p1 -b .logsuppagefix4
+%patch -P 1 -p1 -b .defaultconf
+%patch -P 2 -p2 -b .logsuppagefix1
+%patch -P 3 -p2 -b .logsuppagefix2
+%patch -P 4 -p2 -b .logsuppagefix3
+%patch -P 5 -p1 -b .logsuppagefix4
+%patch -P 6 -p1 -b .r5121
+%patch -P 7 -p1 -b .r5471
+%patch -P 8 -p1 -b .r5472
 
 # update SOURCE5 on maintainer's machine prior commiting, there's no internet connection on builders
 curl %{UrlSource5} -o %{SOURCE5} ||:
@@ -116,6 +124,9 @@ fi
 %{_sharedstatedir}/%{name}
 
 %changelog
+* Wed Nov 22 2023 Michal Hlavinka <mhlavink@redhat.com> - 1:7.1-3
+- don't report new non-device related errors as critical (#RHEL-6982)
+
 * Mon May 29 2023 Michal Hlavinka <mhlavink@redhat.com> - 1:7.1-2
 - support reporting of Error Counter logging details (#2136439)
 
