@@ -1,0 +1,32 @@
+diff -up smartmontools-7.4/farmprint.cpp.fix_sast smartmontools-7.4/farmprint.cpp
+--- smartmontools-7.4/farmprint.cpp.fix_sast	2024-08-06 16:38:15.152139278 +0200
++++ smartmontools-7.4/farmprint.cpp	2024-08-06 16:39:35.309972436 +0200
+@@ -173,6 +173,7 @@ void ataPrintFarmLog(const ataFarmLog& f
+   farm_format_id_string(firmwareRev, farm_byte_swap(farmLog.driveInformation.firmwareRev2), farm_byte_swap(farmLog.driveInformation.firmwareRev));
+ 
+   char modelNumber[sizeof(farmLog.driveInformation.modelNumber) + 1];
++  modelNumber[0] = '\0';
+   for (uint8_t i = 0; i < sizeof(farmLog.driveInformation.modelNumber) / sizeof(farmLog.driveInformation.modelNumber[0]); i++) {
+     farm_format_id_string(&modelNumber[strlen(modelNumber)], farm_byte_swap(farmLog.driveInformation.modelNumber[i]));
+   }
+diff -up smartmontools-7.4/scsicmds.cpp.fix_sast smartmontools-7.4/scsicmds.cpp
+--- smartmontools-7.4/scsicmds.cpp.fix_sast	2024-08-06 16:32:18.058427672 +0200
++++ smartmontools-7.4/scsicmds.cpp	2024-08-06 16:37:56.041940650 +0200
+@@ -200,7 +200,7 @@ scsi_device::cmd_support_level(uint8_t o
+ 
+ supported_vpd_pages::supported_vpd_pages(scsi_device * device) : num_valid(0)
+ {
+-    unsigned char b[0xfc] = {};   /* pre SPC-3 INQUIRY max response size */
++    unsigned char b[260] = {};   /* pre SPC-3 INQUIRY max response size, but also allow sizeof(pages)+4 for memcpy bellow */
+ 
+     if (device && (0 == scsiInquiryVpd(device, SCSI_VPD_SUPPORTED_VPD_PAGES,
+                    b, sizeof(b)))) {
+@@ -1807,7 +1807,7 @@ scsiModePageOffset(const uint8_t * resp,
+             bd_len = resp[3];
+             offset = bd_len + 4;
+         }
+-        if ((offset + 2) > len) {
++        if ((offset + 2) >= len) {
+             pout("scsiModePageOffset: raw_curr too small, offset=%d "
+                  "resp_len=%d bd_len=%d\n", offset, resp_len, bd_len);
+             offset = -1;
