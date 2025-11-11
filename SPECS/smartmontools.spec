@@ -7,7 +7,7 @@
 Summary:	Tools for monitoring SMART capable hard disks
 Name:		smartmontools
 Version:	7.4
-Release:	7%{?dist}
+Release:	8%{?dist}
 Epoch:		1
 License:	GPL-2.0-or-later
 URL:		http://smartmontools.sourceforge.net/
@@ -25,6 +25,7 @@ Source8:	%{modulename}.fc
 Patch1:		smartmontools-5.38-defaultconf.patch
 # reported upstream, issue#273, RHEL-44567
 Patch2:		smartmontools-7.4-fix_sast.patch
+Patch3:	smartmontools-7.5-a2a45dc.patch
 
 BuildRequires: make
 BuildRequires:	gcc-c++ readline-devel ncurses-devel automake util-linux groff gettext
@@ -70,6 +71,7 @@ Custom SELinux policy module for smartmontools
 %setup -q 
 %patch -P 1 -p1 -b .defaultconf
 %patch -P 2 -p1 -b .fix_sast
+%patch -P 3 -p2 -b .a2a45dc
 cp %{SOURCE5} .
 %if 0%{?with_selinux}
 mkdir selinux
@@ -170,6 +172,9 @@ fi
 
 
 %changelog
+* Wed Jul 16 2025 Michal Hlavinka <mhlavink@redhat.com> - 1:7.4-8
+- fix buffer overflow parsing VPD page (RHEL-83471)
+
 * Tue Oct 29 2024 Troy Dawson <tdawson@redhat.com> - 1:7.4-7
 - Bump release for October 2024 mass rebuild:
   Resolves: RHEL-64018
