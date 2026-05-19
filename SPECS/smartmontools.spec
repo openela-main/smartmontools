@@ -7,7 +7,7 @@
 Summary:	Tools for monitoring SMART capable hard disks
 Name:		smartmontools
 Version:	7.4
-Release:	8%{?dist}
+Release:	9%{?dist}
 Epoch:		1
 License:	GPL-2.0-or-later
 URL:		http://smartmontools.sourceforge.net/
@@ -20,6 +20,7 @@ Source5:	drivedb.h
 Source6:	%{modulename}.te
 Source7:	%{modulename}.if
 Source8:	%{modulename}.fc
+Source9:	smartmontools.tmpfilesd
 
 #fedora/rhel specific
 Patch1:		smartmontools-5.38-defaultconf.patch
@@ -31,6 +32,9 @@ BuildRequires: make
 BuildRequires:	gcc-c++ readline-devel ncurses-devel automake util-linux groff gettext
 BuildRequires:	libselinux-devel libcap-ng-devel
 BuildRequires:	systemd systemd-devel
+# For the _tmpfilesdir macro.
+BuildRequires: systemd-rpm-macros
+
 %if 0%{?with_selinux}
 # This ensures that the *-selinux package and all it’s dependencies are not pulled
 # into containers and other systems that do not use SELinux
@@ -103,6 +107,7 @@ chmod a-x -R examplescripts/*
 install -D -p -m 644 %{SOURCE2} $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig/smartmontools
 install -D -p -m 755 %{SOURCE4} $RPM_BUILD_ROOT/%{_libexecdir}/%{name}/smartdnotify
 mkdir -p $RPM_BUILD_ROOT/%{_sysconfdir}/%{name}/smartd_warning.d
+install -p -D -m 644 %{SOURCE9} $RPM_BUILD_ROOT%{_tmpfilesdir}/%{name}.conf
 rm -rf $RPM_BUILD_ROOT/etc/{rc.d,init.d}
 rm -rf $RPM_BUILD_ROOT%{_docdir}/%{name}
 mkdir -p $RPM_BUILD_ROOT%{_sharedstatedir}/%{name}
@@ -158,6 +163,7 @@ fi
 %{_sbindir}/smartd
 %{_sbindir}/update-smart-drivedb
 %{_sbindir}/smartctl
+%{_tmpfilesdir}/%{name}.conf
 %{_mandir}/man?/smart*.*
 %{_mandir}/man?/update-smart*.*
 %{_libexecdir}/%{name}
@@ -172,6 +178,9 @@ fi
 
 
 %changelog
+* Mon Dec 08 2025 Michal Hlavinka <mhlavink@redhat.com> - 1:7.4-9
+- use tmpfiles.d to create /var/lib/smartmontools (RHEL-130575)
+
 * Wed Jul 16 2025 Michal Hlavinka <mhlavink@redhat.com> - 1:7.4-8
 - fix buffer overflow parsing VPD page (RHEL-83471)
 
