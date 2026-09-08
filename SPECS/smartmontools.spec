@@ -1,7 +1,7 @@
 Summary:	Tools for monitoring SMART capable hard disks
 Name:		smartmontools
 Version:	7.1
-Release:	3%{?dist}
+Release:	4%{?dist}
 Epoch:		1
 Group:		System Environment/Base
 License:	GPLv2+
@@ -24,6 +24,10 @@ Patch5:		smartmontools-7.2-logsuppagefix4.patch
 Patch6:		smartmontools-7.4-r5121.patch
 Patch7:		smartmontools-7.4-r5471.patch
 Patch8:		smartmontools-7.4-r5472.patch
+
+# from upstream, for <= 7.3, RHEL-148723
+# https://github.com/smartmontools/smartmontools/commit/5689dea0d77713c984188db9cf6b8377081b880f
+Patch9:	smartmontools-7.2-json-pending-count.patch
 
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 #new rpm does not handle this (yet?)
@@ -53,7 +57,7 @@ failure.
 %patch -P 6 -p1 -b .r5121
 %patch -P 7 -p1 -b .r5471
 %patch -P 8 -p1 -b .r5472
-
+%patch -P 9 -p1 -b .json-pending-count
 # update SOURCE5 on maintainer's machine prior commiting, there's no internet connection on builders
 curl %{UrlSource5} -o %{SOURCE5} ||:
 cp %{SOURCE5} .
@@ -124,6 +128,9 @@ fi
 %{_sharedstatedir}/%{name}
 
 %changelog
+* Mon Aug 10 2026 Michal Hlavinka <mhlavink@redhat.com> - 1:7.1-4
+- fix pending count output breaking json format (RHEL-148723)
+
 * Wed Nov 22 2023 Michal Hlavinka <mhlavink@redhat.com> - 1:7.1-3
 - don't report new non-device related errors as critical (#RHEL-6982)
 
